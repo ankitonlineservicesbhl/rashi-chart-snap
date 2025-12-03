@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import BirthInfoForm from '@/components/BirthInfoForm';
 import RashiChart from '@/components/RashiChart';
 import PlanetInfoTable from '@/components/PlanetInfoTable';
-import { calculateChart, parseLatitude, parseLongitude, BirthData, Planet } from '@/lib/kundliCalculations';
+import { calculateChart, parseLatitude, parseLongitude, BirthData, Planet, isKundliLoaded } from '@/lib/kundliCalculations';
 
 const Index = () => {
   // Form state
@@ -18,8 +18,26 @@ const Index = () => {
   const [rashis, setRashis] = useState<number[]>([]);
   const [houses, setHouses] = useState<string[][]>([]);
   const [chartGenerated, setChartGenerated] = useState(false);
+  const [kundliReady, setKundliReady] = useState(false);
+
+  // Check if kundli.js is loaded
+  useEffect(() => {
+    const checkKundli = () => {
+      if (isKundliLoaded()) {
+        setKundliReady(true);
+      } else {
+        setTimeout(checkKundli, 100);
+      }
+    };
+    checkKundli();
+  }, []);
 
   const handleGenerate = useCallback(() => {
+    if (!kundliReady) {
+      console.log('Waiting for kundli.js to load...');
+      return;
+    }
+
     const [hours, minutes] = time.split(':').map(Number);
     const birthDate = new Date(date);
     
@@ -37,18 +55,23 @@ const Index = () => {
     setRashis(result.rashis);
     setHouses(result.houses);
     setChartGenerated(true);
-  }, [name, date, time, tz, lat, lon]);
+  }, [name, date, time, tz, lat, lon, kundliReady]);
 
-  // Generate chart on initial load
-  React.useEffect(() => {
-    handleGenerate();
-  }, []);
+  // Generate chart when kundli is ready
+  useEffect(() => {
+    if (kundliReady) {
+      handleGenerate();
+    }
+  }, [kundliReady]);
 
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         <header className="text-center">
           <h1 className="text-2xl font-bold text-foreground">Rashi Chart</h1>
+          {!kundliReady && (
+            <p className="text-sm text-muted-foreground">Loading astronomical data...</p>
+          )}
         </header>
 
         <BirthInfoForm
