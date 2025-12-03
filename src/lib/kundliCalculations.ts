@@ -1,12 +1,30 @@
-// Astronomical calculation constants
+// This file wraps the original kundli.js calculations
+// The heavy astronomical calculations are loaded from /kundli.js
+
+declare global {
+  interface Window {
+    // VSOP87 calculation functions from kundli.js
+    calc_earth: (T: number) => void;
+    calc_mars: (T: number) => void;
+    calc_mercury: (T: number) => void;
+    calc_jupiter: (T: number) => void;
+    calc_venus: (T: number) => void;
+    calc_shani: (T: number) => void;
+    earth: number[];
+    mars: number[];
+    mercury: number[];
+    jupiter: number[];
+    venus: number[];
+    shani: number[];
+  }
+}
+
+// Constants
 const DEGS = 180 / Math.PI;
 const RADS = Math.PI / 180;
-const EPS = 1.0e-12;
 
-// Planet indices
 export const AS = 0, SU = 1, MO = 2, MA = 3, ME = 4, JU = 5, VE = 6, SA = 7, RA = 8, KE = 9;
 
-// Zodiac signs
 export const zodiacNames = [
   '', 'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
   'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
@@ -64,7 +82,8 @@ function calcDayNumber(birthData: BirthData): number {
     const a = Math.floor(0.01 * yy);
     b = 2 - a + Math.floor(0.25 * a);
   } else {
-    b = 0;
+    const a = Math.floor(0.01 * yy);
+    b = 0 * (2 - a + Math.floor(0.25 * a));
   }
   
   const c = Math.floor(365.25 * yy);
@@ -105,14 +124,52 @@ function calcDeltaT(year: number): number {
   const y = year + 0.5 / 12;
   const c = -0.000012932 * Math.pow((y - 1955), 2);
   let dt = 0;
+  const t2 = 0, t3 = 0, t4 = 0, t5 = 0;
   
-  if (y > 2005 && y <= 2050) {
-    const t = (y - 2000);
-    dt = 62.92 + 0.32217 * t + 0.005589 * t * t + c;
+  if (y <= -500) {
+    const u = (y - 1820) / 100;
+    dt = -20 + 32 * u * u + c;
+  } else if (y < -500 && y <= 500) {
+    const u = y / 100;
+    dt = 10583.6 - 1014.41 * u + 33.78311 * u * u - 5.952053 * u * u * u
+      - 0.1798452 * u * u * u * u + 0.022174192 * u * u * u * u * u + 0.0090316521 * u * u * u * u * u * u + c;
+  } else if (y > 500 && y <= 1600) {
+    const u = (y - 1000) / 100;
+    dt = 1574.2 - 556.01 * u + 71.23472 * u * u + 0.319781 * u * u * u
+      - 0.8503463 * u * u * u * u - 0.005050998 * u * u * u * u * u + 0.0083572073 * u * u * u * u * u * u + c;
+  } else if (y > 1600 && y <= 1700) {
+    const t = (y - 1600);
+    dt = 120 - 0.9808 * t - 0.01532 * t * t + t * t * t / 7129 + c;
+  } else if (y > 1700 && y <= 1800) {
+    const t = (y - 1800);
+    dt = 13.72 - 0.332447 * t + 0.0068612 * t * t + 0.0041116 * t * t * t
+      - 0.00037436 * t * t * t * t + 0.0000121272 * t * t * t * t * t - 0.0000001699 * t * t * t * t * t * t
+      + 0.000000000875 * t * t * t * t * t * t * t + c;
+  } else if (y > 1860 && y <= 1900) {
+    const t = (y - 1860);
+    dt = 7.62 + 0.5737 * t - 0.251754 * t * t + 0.01680668 * t * t * t
+      - 0.0004473624 * t * t * t * t + t * t * t * t * t / 233174 + c;
+  } else if (y > 1900 && y <= 1920) {
+    const t = (y - 1920);
+    dt = 21.20 + 0.84493 * t - 0.076100 * t * t + 0.0020936 * t * t * t + c;
+  } else if (y > 1941 && y <= 1961) {
+    const t = (y - 1950);
+    dt = 29.07 + 0.407 * t - t * t / 233 + t * t * t / 2547;
+  } else if (y > 1961 && y <= 1986) {
+    const t = (y - 1975);
+    dt = 45.45 + 1.067 * t - t * t / 260 - t * t * t / 718;
   } else if (y > 1986 && y <= 2005) {
     const t = (y - 2000);
     dt = 3.86 + 0.3345 * t - 0.060374 * t * t + 0.0017275 * t * t * t
       + 0.000651814 * t * t * t * t + 0.00002373599 * t * t * t * t * t;
+  } else if (y > 2005 && y <= 2050) {
+    const t = (y - 2000);
+    dt = 62.92 + 0.32217 * t + 0.005589 * t * t + c;
+  } else if (y > 2050 && y <= 2150) {
+    dt = -20 + 32 * ((y - 1820) / 100) * ((y - 1820) / 100) - 0.5628 * (2150 - y) + c;
+  } else if (y > 2150) {
+    const u = (y - 1820) / 100;
+    dt = -20 + 32 * u * u + c;
   }
   
   return dt;
@@ -132,7 +189,7 @@ function calcAyanamsa(date: Date): number {
 }
 
 function calcSiderealTime(birthData: BirthData): number {
-  const { time, lon } = birthData;
+  const { lon } = birthData;
   const dn = calcDayNumber(birthData);
   const t = dn / 36525.0;
   const tt = t * 36525.0;
@@ -142,12 +199,27 @@ function calcSiderealTime(birthData: BirthData): number {
 }
 
 function calcEclipticObliquity(jd: number): number {
+  const terms = [-4680.93 / 3600.0, -1.55 / 3600.0, 1999.25 / 3600.0,
+    -51.38 / 3600.0, -249.67 / 3600.0, -39.05 / 3600.0,
+    7.12 / 3600.0, 27.87 / 3600.0, 5.79 / 3600.0, 2.45 / 3600.0];
+  
+  let eps = 23 + (26 / 60.0) + (21.448 / 3600.0);
   const cy = jd / 36525.0;
-  return 23 + (26 / 60.0) + (21.448 / 3600.0) - (46.815 * cy) / 3600;
+  let u = (jd - 2415020.0) / (cy * 100);
+  let v = u;
+  
+  if (Math.abs(u) < 1.0) {
+    for (let i = 0; i < 10; i++) {
+      eps += terms[i] * v;
+      v *= u;
+    }
+  }
+  
+  return eps;
 }
 
 function calcAscendant(birthData: BirthData): number {
-  const { time, lat } = birthData;
+  const { lat } = birthData;
   const t = calcSiderealTime(birthData);
   const jd = calcJulianDate(birthData);
   const ecl = calcEclipticObliquity(jd);
@@ -158,34 +230,114 @@ function calcAscendant(birthData: BirthData): number {
   return asc * DEGS;
 }
 
-// Simplified planetary calculations using mean elements
-function calcPlanetPosition(planet: number, dn: number): number {
-  const cy = dn / 36525;
+// VSOP87 calculation using the loaded kundli.js
+function calcVSOP87(planet: number, jd: number): number {
+  const X = 0, Y = 1;
+  let Xp: number, Yp: number, Zp: number;
+  let Xe: number, Ye: number, Ze: number;
   
-  // Mean elements for planets (simplified)
-  const elements: { [key: number]: { L: number; rate: number } } = {
-    [SU]: { L: 280.46457, rate: 0.98564736 },
-    [MO]: { L: 218.316, rate: 13.176396 },
-    [MA]: { L: 355.4533, rate: 0.524071 },
-    [ME]: { L: 252.251, rate: 4.09233 },
-    [JU]: { L: 34.4044, rate: 0.08309 },
-    [VE]: { L: 181.9798, rate: 1.60214 },
-    [SA]: { L: 49.9443, rate: 0.03346 },
-  };
+  // Number of Julian millennia elapsed from J2000
+  const T = (jd - 2451545.0) / 365250.0;
   
-  if (elements[planet]) {
-    return mod360(elements[planet].L + elements[planet].rate * dn);
+  // Calculate heliocentric rectangular coordinates of Earth
+  if (window.calc_earth) {
+    window.calc_earth(T);
+    Xe = window.earth[X];
+    Ye = window.earth[Y];
+    Ze = window.earth[2];
+  } else {
+    return 0;
   }
-  return 0;
+  
+  switch (planet) {
+    case 1: // Sun
+      Xp = -window.earth[X];
+      Yp = -window.earth[Y];
+      Zp = -window.earth[2];
+      break;
+    case 3: // Mars
+      if (window.calc_mars) {
+        window.calc_mars(T);
+        Xp = window.mars[X];
+        Yp = window.mars[Y];
+        Zp = window.mars[2];
+      } else return 0;
+      break;
+    case 4: // Mercury
+      if (window.calc_mercury) {
+        window.calc_mercury(T);
+        Xp = window.mercury[X];
+        Yp = window.mercury[Y];
+        Zp = window.mercury[2];
+      } else return 0;
+      break;
+    case 5: // Jupiter
+      if (window.calc_jupiter) {
+        window.calc_jupiter(T);
+        Xp = window.jupiter[X];
+        Yp = window.jupiter[Y];
+        Zp = window.jupiter[2];
+      } else return 0;
+      break;
+    case 6: // Venus
+      if (window.calc_venus) {
+        window.calc_venus(T);
+        Xp = window.venus[X];
+        Yp = window.venus[Y];
+        Zp = window.venus[2];
+      } else return 0;
+      break;
+    case 7: // Saturn
+      if (window.calc_shani) {
+        window.calc_shani(T);
+        Xp = window.shani[X];
+        Yp = window.shani[Y];
+        Zp = window.shani[2];
+      } else return 0;
+      break;
+    default:
+      return 0;
+  }
+  
+  // Sun coordinates
+  if (planet === SU) { Xe = 0; Ye = 0; Ze = 0; }
+  
+  // True geocentric ecliptical coordinates
+  const Xa = (Xp! - Xe);
+  const Ya = (Yp! - Ye);
+  
+  // Spherical geocentric coordinates
+  const Ra = Math.atan2(Ya, Xa) * DEGS;
+  
+  return Ra;
 }
 
-// High precision Moon position calculation (simplified version)
+// High precision Moon position (Jean Meeus algorithm)
 function calcMoonPosition(birthData: BirthData): number {
   const jd = calcJulianDate(birthData);
   const T = (jd - 2451545.0) / 36525.0;
   const T2 = T * T;
   const T3 = T * T * T;
   const T4 = T * T * T * T;
+  
+  const lrCoeff = [
+    [0, 0, 1, 0], [2, 0, -1, 0], [2, 0, 0, 0], [0, 0, 2, 0], [0, 1, 0, 0], [0, 0, 0, 2], [2, 0, -2, 0],
+    [2, -1, -1, 0], [2, 0, 1, 0], [2, -1, 0, 0], [0, 1, -1, 0], [1, 0, 0, 0], [0, 1, 1, 0], [2, 0, 0, -2],
+    [0, 0, 1, 2], [0, 0, 1, -2], [4, 0, -1, 0], [0, 0, 3, 0], [4, 0, -2, 0], [2, 1, -1, 0], [2, 1, 0, 0],
+    [1, 0, -1, 0], [1, 1, 0, 0], [2, -1, 1, 0], [2, 0, 2, 0], [4, 0, 0, 0], [2, 0, -3, 0], [0, 1, -2, 0],
+    [2, 0, -1, 2], [2, -1, -2, 0], [1, 0, 1, 0], [2, -2, 0, 0], [0, 1, 2, 0], [0, 2, 0, 0], [2, -2, -1, 0],
+    [2, 0, 1, -2], [2, 0, 0, 2], [4, -1, -1, 0], [0, 0, 2, 2], [3, 0, -1, 0], [2, 1, 1, 0], [4, -1, -2, 0],
+    [0, 2, -1, 0], [2, 2, -1, 0], [2, 1, -2, 0], [2, -1, 0, -2], [4, 0, 1, 0], [0, 0, 4, 0], [4, -1, 0, 0],
+    [1, 0, -2, 0], [2, 1, 0, -2], [0, 0, 2, -2], [1, 1, 1, 0], [3, 0, -2, 0], [4, 0, -3, 0], [2, -1, 2, 0],
+    [0, 2, 1, 0], [1, 1, -1, 0], [2, 0, 3, 0], [2, 0, -1, -2]
+  ];
+  
+  const lTerms = [
+    6288774, 1274027, 658314, 213618, -185116, -114332, 58793, 57066, 53322, 45758, -40923, -34720,
+    -30383, 15327, -12528, 10980, 10675, 10034, 8548, -7888, -6766, -5163, 4987, 4036, 3994, 3861, 3665,
+    -2689, -2602, 2390, -2348, 2236, -2120, -2069, 2048, -1773, -1595, 1215, -1110, -892, -810, 759, -713,
+    -700, 691, 596, 549, 537, 520, -487, -399, -381, 351, -340, 330, 327, -323, 299, 294, 0
+  ];
   
   let lprime = mod2pi((218.3164591 + 481267.88134236 * T - 0.0013268 * T2 + T3 / 538841.0 - T4 / 65194000.0) * RADS);
   const d = mod2pi((297.8502042 + 445267.1115168 * T - 0.00163 * T2 + T3 / 545868.0 - T4 / 113065000.0) * RADS);
@@ -196,13 +348,16 @@ function calcMoonPosition(birthData: BirthData): number {
   const a1 = mod2pi((119.75 + 131.849 * T) * RADS);
   const a2 = mod2pi((53.09 + 479264.29 * T) * RADS);
   
-  // Simplified sigma calculation
-  let sigmaL = 6288774 * Math.sin(mprime)
-    + 1274027 * Math.sin(2 * d - mprime)
-    + 658314 * Math.sin(2 * d)
-    + 213618 * Math.sin(2 * mprime)
-    - 185116 * Math.sin(m)
-    - 114332 * Math.sin(2 * f);
+  const e: number[] = [];
+  e[0] = 1;
+  e[1] = 1 - 0.002516 * T - 0.0000074 * T2;
+  e[2] = e[1] * e[1];
+  
+  let sigmaL = 0;
+  for (let i = 0; i < 60; i++) {
+    const ang = lrCoeff[i][0] * d + lrCoeff[i][1] * m + lrCoeff[i][2] * mprime + lrCoeff[i][3] * f;
+    sigmaL += lTerms[i] * Math.sin(ang) * e[Math.abs(lrCoeff[i][1])];
+  }
   
   sigmaL += 3958.0 * Math.sin(a1) + 1962.0 * Math.sin(lprime - f) + 318.0 * Math.sin(a2);
   
@@ -262,14 +417,32 @@ function calcNakshatra(deg: number): { name: string; lord: string; pada: number 
   };
 }
 
+function createPlanet(name: string, index: number, ra: number): Planet {
+  const deg = mod360(ra);
+  const zodiacIndex = calcZodiac(deg);
+  const nakshatra = calcNakshatra(deg);
+  
+  return {
+    name,
+    index,
+    ra: deg,
+    zodiac: zodiacNames[zodiacIndex],
+    degree: deg % 30,
+    rasizn: zodiacIndex,
+    navzn: calcZodiac(mod2pi(deg * 9 * RADS) * DEGS),
+    nakshatra: nakshatra.name,
+    nakshatraLord: nakshatra.lord,
+    nakshatraPada: nakshatra.pada
+  };
+}
+
 export function calculateChart(birthData: BirthData): { planets: Planet[]; rashis: number[]; houses: string[][] } {
   const ay = calcAyanamsa(birthData.date);
-  const dn = calcDayNumber(birthData);
   const jd = calcJulianDate(birthData);
   
   // Calculate Ascendant
   const ascDeg = calcAscendant(birthData) - ay;
-  const ascZodiac = calcZodiac(ascDeg);
+  const ascZodiac = calcZodiac(mod360(ascDeg));
   
   // Calculate Rashis (zodiac signs for each house)
   const rashis: number[] = [];
@@ -279,167 +452,46 @@ export function calculateChart(birthData: BirthData): { planets: Planet[]; rashi
     else { rashis[i] = ascZodiac + i; }
   }
   
-  // Calculate planets
   const planets: Planet[] = [];
   
   // Ascendant
-  const ascNakshatra = calcNakshatra(mod360(ascDeg));
-  planets[AS] = {
-    name: 'As',
-    index: AS,
-    ra: mod360(ascDeg),
-    zodiac: zodiacNames[ascZodiac],
-    degree: mod360(ascDeg) % 30,
-    rasizn: ascZodiac,
-    navzn: calcZodiac(mod2pi(mod360(ascDeg) * 9 * RADS) * DEGS),
-    nakshatra: ascNakshatra.name,
-    nakshatraLord: ascNakshatra.lord,
-    nakshatraPada: ascNakshatra.pada
-  };
+  planets[AS] = createPlanet('As', AS, mod360(ascDeg));
   
-  // Sun
-  const sunDeg = mod360(calcPlanetPosition(SU, dn) - ay);
-  const sunNakshatra = calcNakshatra(sunDeg);
-  planets[SU] = {
-    name: 'Su',
-    index: SU,
-    ra: sunDeg,
-    zodiac: zodiacNames[calcZodiac(sunDeg)],
-    degree: sunDeg % 30,
-    rasizn: calcZodiac(sunDeg),
-    navzn: calcZodiac(mod2pi(sunDeg * 9 * RADS) * DEGS),
-    nakshatra: sunNakshatra.name,
-    nakshatraLord: sunNakshatra.lord,
-    nakshatraPada: sunNakshatra.pada
-  };
+  // Sun - using VSOP87
+  const sunRa = calcVSOP87(1, jd) - ay;
+  planets[SU] = createPlanet('Su', SU, sunRa);
   
-  // Moon
-  const moonDeg = mod360(calcMoonPosition(birthData) - ay);
-  const moonNakshatra = calcNakshatra(moonDeg);
-  planets[MO] = {
-    name: 'Mo',
-    index: MO,
-    ra: moonDeg,
-    zodiac: zodiacNames[calcZodiac(moonDeg)],
-    degree: moonDeg % 30,
-    rasizn: calcZodiac(moonDeg),
-    navzn: calcZodiac(mod2pi(moonDeg * 9 * RADS) * DEGS),
-    nakshatra: moonNakshatra.name,
-    nakshatraLord: moonNakshatra.lord,
-    nakshatraPada: moonNakshatra.pada
-  };
+  // Moon - high precision
+  const moonRa = calcMoonPosition(birthData) - ay;
+  planets[MO] = createPlanet('Mo', MO, moonRa);
   
-  // Mars
-  const marsDeg = mod360(calcPlanetPosition(MA, dn) - ay);
-  const marsNakshatra = calcNakshatra(marsDeg);
-  planets[MA] = {
-    name: 'Ma',
-    index: MA,
-    ra: marsDeg,
-    zodiac: zodiacNames[calcZodiac(marsDeg)],
-    degree: marsDeg % 30,
-    rasizn: calcZodiac(marsDeg),
-    navzn: calcZodiac(mod2pi(marsDeg * 9 * RADS) * DEGS),
-    nakshatra: marsNakshatra.name,
-    nakshatraLord: marsNakshatra.lord,
-    nakshatraPada: marsNakshatra.pada
-  };
+  // Mars - using VSOP87
+  const marsRa = calcVSOP87(3, jd) - ay;
+  planets[MA] = createPlanet('Ma', MA, marsRa);
   
-  // Mercury
-  const mercDeg = mod360(calcPlanetPosition(ME, dn) - ay);
-  const mercNakshatra = calcNakshatra(mercDeg);
-  planets[ME] = {
-    name: 'Me',
-    index: ME,
-    ra: mercDeg,
-    zodiac: zodiacNames[calcZodiac(mercDeg)],
-    degree: mercDeg % 30,
-    rasizn: calcZodiac(mercDeg),
-    navzn: calcZodiac(mod2pi(mercDeg * 9 * RADS) * DEGS),
-    nakshatra: mercNakshatra.name,
-    nakshatraLord: mercNakshatra.lord,
-    nakshatraPada: mercNakshatra.pada
-  };
+  // Mercury - using VSOP87
+  const mercRa = calcVSOP87(4, jd) - ay;
+  planets[ME] = createPlanet('Me', ME, mercRa);
   
-  // Jupiter
-  const jupDeg = mod360(calcPlanetPosition(JU, dn) - ay);
-  const jupNakshatra = calcNakshatra(jupDeg);
-  planets[JU] = {
-    name: 'Ju',
-    index: JU,
-    ra: jupDeg,
-    zodiac: zodiacNames[calcZodiac(jupDeg)],
-    degree: jupDeg % 30,
-    rasizn: calcZodiac(jupDeg),
-    navzn: calcZodiac(mod2pi(jupDeg * 9 * RADS) * DEGS),
-    nakshatra: jupNakshatra.name,
-    nakshatraLord: jupNakshatra.lord,
-    nakshatraPada: jupNakshatra.pada
-  };
+  // Jupiter - using VSOP87
+  const jupRa = calcVSOP87(5, jd) - ay;
+  planets[JU] = createPlanet('Ju', JU, jupRa);
   
-  // Venus
-  const venDeg = mod360(calcPlanetPosition(VE, dn) - ay);
-  const venNakshatra = calcNakshatra(venDeg);
-  planets[VE] = {
-    name: 'Ve',
-    index: VE,
-    ra: venDeg,
-    zodiac: zodiacNames[calcZodiac(venDeg)],
-    degree: venDeg % 30,
-    rasizn: calcZodiac(venDeg),
-    navzn: calcZodiac(mod2pi(venDeg * 9 * RADS) * DEGS),
-    nakshatra: venNakshatra.name,
-    nakshatraLord: venNakshatra.lord,
-    nakshatraPada: venNakshatra.pada
-  };
+  // Venus - using VSOP87
+  const venRa = calcVSOP87(6, jd) - ay;
+  planets[VE] = createPlanet('Ve', VE, venRa);
   
-  // Saturn
-  const satDeg = mod360(calcPlanetPosition(SA, dn) - ay);
-  const satNakshatra = calcNakshatra(satDeg);
-  planets[SA] = {
-    name: 'Sa',
-    index: SA,
-    ra: satDeg,
-    zodiac: zodiacNames[calcZodiac(satDeg)],
-    degree: satDeg % 30,
-    rasizn: calcZodiac(satDeg),
-    navzn: calcZodiac(mod2pi(satDeg * 9 * RADS) * DEGS),
-    nakshatra: satNakshatra.name,
-    nakshatraLord: satNakshatra.lord,
-    nakshatraPada: satNakshatra.pada
-  };
+  // Saturn - using VSOP87
+  const satRa = calcVSOP87(7, jd) - ay;
+  planets[SA] = createPlanet('Sa', SA, satRa);
   
   // Rahu
-  const rahuDeg = mod360(calcMoonAscendingNode(birthData));
-  const rahuNakshatra = calcNakshatra(rahuDeg);
-  planets[RA] = {
-    name: 'Ra',
-    index: RA,
-    ra: rahuDeg,
-    zodiac: zodiacNames[calcZodiac(rahuDeg)],
-    degree: rahuDeg % 30,
-    rasizn: calcZodiac(rahuDeg),
-    navzn: calcZodiac(mod2pi(rahuDeg * 9 * RADS) * DEGS),
-    nakshatra: rahuNakshatra.name,
-    nakshatraLord: rahuNakshatra.lord,
-    nakshatraPada: rahuNakshatra.pada
-  };
+  const rahuRa = calcMoonAscendingNode(birthData);
+  planets[RA] = createPlanet('Ra', RA, rahuRa);
   
-  // Ketu
-  const ketuDeg = mod360(rahuDeg + 180);
-  const ketuNakshatra = calcNakshatra(ketuDeg);
-  planets[KE] = {
-    name: 'Ke',
-    index: KE,
-    ra: ketuDeg,
-    zodiac: zodiacNames[calcZodiac(ketuDeg)],
-    degree: ketuDeg % 30,
-    rasizn: calcZodiac(ketuDeg),
-    navzn: calcZodiac(mod2pi(ketuDeg * 9 * RADS) * DEGS),
-    nakshatra: ketuNakshatra.name,
-    nakshatraLord: ketuNakshatra.lord,
-    nakshatraPada: ketuNakshatra.pada
-  };
+  // Ketu (opposite to Rahu)
+  const ketuRa = mod360(rahuRa + 180);
+  planets[KE] = createPlanet('Ke', KE, ketuRa);
   
   // Calculate houses
   const houses: string[][] = Array(12).fill(null).map(() => []);
@@ -476,4 +528,9 @@ export function parseLongitude(input: string): number {
     return -(parseInt(parts[0]) + (parseInt(parts[1]) || 0) / 60);
   }
   return parseFloat(input) || 0;
+}
+
+// Function to check if kundli.js is loaded
+export function isKundliLoaded(): boolean {
+  return typeof window !== 'undefined' && typeof window.calc_earth === 'function';
 }
